@@ -1,61 +1,26 @@
 import { useEffect, useCallback } from 'react';
 import { useOnlineStatus } from './useOnlineStatus';
-import { getUnsyncedQueueItemsDB, markQueueItemSyncedDB, clearSyncedQueueItemsDB } from '@/lib/db';
-import { toast } from 'sonner';
+import { syncEngine } from '@/services/syncEngine';
+import { useSyncStatus } from './useSyncStatus';
 
+/**
+ * Hook for offline sync functionality
+ * NOW INTEGRATED with unified sync engine
+ */
 export function useOfflineSync() {
     const isOnline = useOnlineStatus();
+    const { triggerSync, isSyncing, pendingCount, conflictCount } = useSyncStatus();
 
     const syncOfflineQueue = useCallback(async () => {
         if (!isOnline) return;
 
         try {
-            const queueItems = await getUnsyncedQueueItemsDB();
-
-            if (queueItems.length === 0) return;
-
-            console.log(`🔄 Syncing ${queueItems.length} offline actions...`);
-
-            for (const item of queueItems) {
-                try {
-                    // Process each queued action
-                    switch (item.action) {
-                        case 'email_signup':
-                            // Sync email signup to Supabase
-                            // This would call your actual API endpoint
-                            console.log('Syncing email signup:', item.data);
-                            break;
-
-                        case 'add_to_cart':
-                        case 'remove_from_cart':
-                        case 'add_to_wishlist':
-                        case 'remove_from_wishlist':
-                            // These are already in IndexedDB, just mark as synced
-                            console.log(`Syncing ${item.action}:`, item.data);
-                            break;
-                    }
-
-                    // Mark as synced
-                    if (item.id) {
-                        await markQueueItemSyncedDB(item.id);
-                    }
-                } catch (error) {
-                    console.error(`Failed to sync action ${item.action}:`, error);
-                }
-            }
-
-            // Clean up synced items
-            await clearSyncedQueueItemsDB();
-
-            toast.success('Synced offline changes', {
-                description: `${queueItems.length} action(s) synchronized`,
-            });
-
-            console.log('✅ Offline queue synced successfully');
+            console.log('🔄 Triggering sync via sync engine...');
+            await triggerSync();
         } catch (error) {
             console.error('Error syncing offline queue:', error);
         }
-    }, [isOnline]);
+    }, [isOnline, triggerSync]);
 
     useEffect(() => {
         if (isOnline) {
@@ -67,5 +32,8 @@ export function useOfflineSync() {
     return {
         isOnline,
         syncOfflineQueue,
+        isSyncing,
+        pendingCount,
+        conflictCount,
     };
 }

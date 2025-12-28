@@ -9,6 +9,7 @@ import SignupModal from "@/components/SignupModal";
 import AnnouncementTicker from "@/components/AnnouncementTicker";
 import { submitEmail } from "@/utils/emailSignup";
 import { GenderSelector } from "@/components/GenderSelector";
+import RegistrationCounter from "@/components/RegistrationCounter";
 
 import heroParty from "@/assets/hero-party.png";
 import heroBusiness from "@/assets/hero-business.png";
@@ -271,6 +272,16 @@ const Index = () => {
                 <span className="text-sm font-semibold text-black">
                   Now in Beta — Be an Early Tester
                 </span>
+              </motion.div>
+
+              {/* Registration Counter - Shows urgency */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.85 }}
+                className="mt-6 w-full max-w-md"
+              >
+                <RegistrationCounter targetCount={1000} />
               </motion.div>
             </div>
 

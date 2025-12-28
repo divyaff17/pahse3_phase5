@@ -1,6 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
-// Define the database schema
+// Define the unified database schema for offline-first architecture
 interface PopClozetDB extends DBSchema {
     cart: {
         key: string;
@@ -8,6 +8,8 @@ interface PopClozetDB extends DBSchema {
             productId: string;
             quantity: number;
             addedAt: number;
+            updatedAt: number;
+            version: number;
         };
     };
     wishlist: {
@@ -15,6 +17,7 @@ interface PopClozetDB extends DBSchema {
         value: {
             productId: string;
             addedAt: number;
+            version: number;
         };
     };
     products: {
@@ -23,27 +26,57 @@ interface PopClozetDB extends DBSchema {
             id: string;
             data: any;
             cachedAt: number;
+            version: number;
         };
     };
     offlineQueue: {
         key: number;
         value: {
             id?: number;
-            action: 'add_to_cart' | 'remove_from_cart' | 'add_to_wishlist' | 'remove_from_wishlist' | 'email_signup';
+            action: 'add_to_cart' | 'remove_from_cart' | 'add_to_wishlist' | 'remove_from_wishlist' | 'email_signup' | 'create_reservation' | 'cancel_reservation';
             data: any;
             timestamp: number;
             synced: boolean;
+            retryCount: number;
+            lastError?: string;
         };
-        indexes: { 'by-synced': boolean };
+        indexes: { 'by-synced': boolean; 'by-timestamp': number };
     };
     preferences: {
         key: string;
         value: any;
     };
+    sync_metadata: {
+        key: string; // entityType:entityId
+        value: {
+            entityType: 'cart' | 'wishlist' | 'product' | 'reservation' | 'user';
+            entityId: string;
+            lastSyncedAt: number;
+            version: number;
+            syncStatus: 'synced' | 'pending' | 'conflict' | 'error';
+            lastError?: string;
+        };
+        indexes: { 'by-status': string; 'by-entity-type': string };
+    };
+    conflict_log: {
+        key: number;
+        value: {
+            id?: number;
+            entityType: string;
+            entityId: string;
+            localVersion: any;
+            serverVersion: any;
+            resolvedVersion?: any;
+            resolution: 'local' | 'server' | 'manual' | 'pending';
+            timestamp: number;
+            resolvedAt?: number;
+        };
+        indexes: { 'by-resolution': string; 'by-timestamp': number };
+    };
 }
 
 const DB_NAME = 'PopClozet';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for schema changes
 
 let dbInstance: IDBPDatabase<PopClozetDB> | null = null;
 
@@ -77,11 +110,35 @@ export async function initDB(): Promise<IDBPDatabase<PopClozetDB>> {
                     autoIncrement: true,
                 });
                 queueStore.createIndex('by-synced', 'synced');
+                queueStore.createIndex('by-timestamp', 'timestamp');
+            } else if (oldVersion < 2) {
+                // Add timestamp index to existing queue store
+                const queueStore = transaction.objectStore('offlineQueue');
+                if (!queueStore.indexNames.contains('by-timestamp')) {
+                    queueStore.createIndex('by-timestamp', 'timestamp');
+                }
             }
 
             // Create preferences store
             if (!db.objectStoreNames.contains('preferences')) {
                 db.createObjectStore('preferences');
+            }
+
+            // Create sync metadata store (new in v2)
+            if (!db.objectStoreNames.contains('sync_metadata')) {
+                const syncStore = db.createObjectStore('sync_metadata', { keyPath: 'key' });
+                syncStore.createIndex('by-status', 'syncStatus');
+                syncStore.createIndex('by-entity-type', 'entityType');
+            }
+
+            // Create conflict log store (new in v2)
+            if (!db.objectStoreNames.contains('conflict_log')) {
+                const conflictStore = db.createObjectStore('conflict_log', {
+                    keyPath: 'id',
+                    autoIncrement: true,
+                });
+                conflictStore.createIndex('by-resolution', 'resolution');
+                conflictStore.createIndex('by-timestamp', 'timestamp');
             }
         },
     });
@@ -93,12 +150,18 @@ export async function initDB(): Promise<IDBPDatabase<PopClozetDB>> {
 export async function addToCartDB(productId: string, quantity: number = 1) {
     const db = await initDB();
     const existing = await db.get('cart', productId);
+    const now = Date.now();
 
     await db.put('cart', {
         productId,
         quantity: existing ? existing.quantity + quantity : quantity,
-        addedAt: Date.now(),
+        addedAt: existing?.addedAt || now,
+        updatedAt: now,
+        version: (existing?.version || 0) + 1,
     });
+
+    // Update sync metadata
+    await updateSyncMetadata('cart', productId, 'pending');
 }
 
 export async function removeFromCartDB(productId: string) {
@@ -111,11 +174,16 @@ export async function updateCartQuantityDB(productId: string, quantity: number) 
     if (quantity <= 0) {
         await removeFromCartDB(productId);
     } else {
+        const existing = await db.get('cart', productId);
+        const now = Date.now();
         await db.put('cart', {
             productId,
             quantity,
-            addedAt: Date.now(),
+            addedAt: existing?.addedAt || now,
+            updatedAt: now,
+            version: (existing?.version || 0) + 1,
         });
+        await updateSyncMetadata('cart', productId, 'pending');
     }
 }
 
@@ -132,10 +200,13 @@ export async function clearCartDB() {
 // Wishlist operations
 export async function addToWishlistDB(productId: string) {
     const db = await initDB();
+    const existing = await db.get('wishlist', productId);
     await db.put('wishlist', {
         productId,
-        addedAt: Date.now(),
+        addedAt: existing?.addedAt || Date.now(),
+        version: (existing?.version || 0) + 1,
     });
+    await updateSyncMetadata('wishlist', productId, 'pending');
 }
 
 export async function removeFromWishlistDB(productId: string) {
@@ -157,11 +228,14 @@ export async function isInWishlistDB(productId: string): Promise<boolean> {
 // Product cache operations
 export async function cacheProductDB(id: string, data: any) {
     const db = await initDB();
+    const existing = await db.get('products', id);
     await db.put('products', {
         id,
         data,
         cachedAt: Date.now(),
+        version: (existing?.version || 0) + 1,
     });
+    await updateSyncMetadata('product', id, 'synced');
 }
 
 export async function getCachedProductDB(id: string) {
@@ -178,7 +252,7 @@ export async function getCachedProductDB(id: string) {
 
 // Offline queue operations
 export async function addToOfflineQueueDB(
-    action: 'add_to_cart' | 'remove_from_cart' | 'add_to_wishlist' | 'remove_from_wishlist' | 'email_signup',
+    action: 'add_to_cart' | 'remove_from_cart' | 'add_to_wishlist' | 'remove_from_wishlist' | 'email_signup' | 'create_reservation' | 'cancel_reservation',
     data: any
 ) {
     const db = await initDB();
@@ -187,6 +261,7 @@ export async function addToOfflineQueueDB(
         data,
         timestamp: Date.now(),
         synced: false,
+        retryCount: 0,
     });
     console.log(`📥 Added to offline queue: ${action}`, { id, data });
     return id;
@@ -228,6 +303,107 @@ export async function setPreferenceDB(key: string, value: any) {
 export async function getPreferenceDB(key: string) {
     const db = await initDB();
     return await db.get('preferences', key);
+}
+
+// Sync metadata operations
+export async function updateSyncMetadata(
+    entityType: 'cart' | 'wishlist' | 'product' | 'reservation' | 'user',
+    entityId: string,
+    status: 'synced' | 'pending' | 'conflict' | 'error',
+    error?: string
+) {
+    const db = await initDB();
+    const key = `${entityType}:${entityId}`;
+    const existing = await db.get('sync_metadata', key);
+
+    await db.put('sync_metadata', {
+        entityType,
+        entityId,
+        lastSyncedAt: status === 'synced' ? Date.now() : (existing?.lastSyncedAt || 0),
+        version: (existing?.version || 0) + 1,
+        syncStatus: status,
+        lastError: error,
+    });
+}
+
+export async function getSyncMetadata(entityType: string, entityId: string) {
+    const db = await initDB();
+    const key = `${entityType}:${entityId}`;
+    return await db.get('sync_metadata', key);
+}
+
+export async function getPendingSyncItems() {
+    const db = await initDB();
+    return await db.getAllFromIndex('sync_metadata', 'by-status', 'pending');
+}
+
+export async function getConflictItems() {
+    const db = await initDB();
+    return await db.getAllFromIndex('sync_metadata', 'by-status', 'conflict');
+}
+
+// Conflict log operations
+export async function logConflict(
+    entityType: string,
+    entityId: string,
+    localVersion: any,
+    serverVersion: any
+) {
+    const db = await initDB();
+    const id = await db.add('conflict_log', {
+        entityType,
+        entityId,
+        localVersion,
+        serverVersion,
+        resolution: 'pending',
+        timestamp: Date.now(),
+    });
+    console.log(`⚠️ Conflict logged for ${entityType}:${entityId}`, { id });
+    return id;
+}
+
+export async function resolveConflict(
+    conflictId: number,
+    resolution: 'local' | 'server' | 'manual',
+    resolvedVersion?: any
+) {
+    const db = await initDB();
+    const conflict = await db.get('conflict_log', conflictId);
+    if (conflict) {
+        conflict.resolution = resolution;
+        conflict.resolvedVersion = resolvedVersion;
+        conflict.resolvedAt = Date.now();
+        await db.put('conflict_log', conflict);
+        console.log(`✅ Conflict resolved: ${conflictId} (${resolution})`);
+    }
+}
+
+export async function getPendingConflicts() {
+    const db = await initDB();
+    return await db.getAllFromIndex('conflict_log', 'by-resolution', 'pending');
+}
+
+export async function getResolvedConflicts() {
+    const db = await initDB();
+    const all = await db.getAll('conflict_log');
+    return all.filter(c => c.resolution !== 'pending');
+}
+
+// Get sync status summary
+export async function getSyncStatusSummary() {
+    const db = await initDB();
+    const allMetadata = await db.getAll('sync_metadata');
+    const pendingConflicts = await getPendingConflicts();
+    const unsyncedQueue = await getUnsyncedQueueItemsDB();
+
+    return {
+        pending: allMetadata.filter(m => m.syncStatus === 'pending').length,
+        synced: allMetadata.filter(m => m.syncStatus === 'synced').length,
+        conflicts: allMetadata.filter(m => m.syncStatus === 'conflict').length,
+        errors: allMetadata.filter(m => m.syncStatus === 'error').length,
+        queuedActions: unsyncedQueue.length,
+        pendingConflicts: pendingConflicts.length,
+    };
 }
 
 // Migration from localStorage

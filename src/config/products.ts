@@ -70,12 +70,12 @@ export const PRODUCTS: Product[] = [
     { id: "45", name: "Floral Midi Dress", price: 849, rating: 4.6, image: "/src/images/Womens Products/Womens Products/Dresses/IMG_3714.jpg", category: "Casual", gender: "womens", eventCategory: "cocktail", leadTimeMinutes: 35, color: "Blue", sizes: ["S", "M", "L"] },
     { id: "46", name: "Chic Date Night Dress", price: 799, rating: 4.7, image: "/src/images/Womens Products/Womens Products/Dresses/IMG_3720.jpg", category: "Party", gender: "womens", eventCategory: "party", leadTimeMinutes: 40, color: "Black", sizes: ["XS", "S", "M"] },
 
-    // Unisex Thrift Jackets
-    { id: "47", name: "Vintage Thrift Jacket", price: 699, rating: 4.8, image: "/src/images/Thrift - Jackets/Thrift - Jackets/IMG_7905 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 35, color: "Brown", sizes: ["M", "L", "XL"] },
-    { id: "48", name: "Retro Denim Jacket", price: 599, rating: 4.6, image: "/src/images/Thrift - Jackets/Thrift - Jackets/IMG_7920 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 30, color: "Blue", sizes: ["L", "XL"] },
-    { id: "49", name: "Classic Thrift Find", price: 499, rating: 4.5, image: "/src/images/Thrift - Jackets/Thrift - Jackets/L.   IMG_7911 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 30, color: "Black", sizes: ["L"] },
-    { id: "8", name: "Casual Denim Jacket", price: 299, rating: 4.4, image: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=1000&auto=format&fit=crop", category: "Casual", gender: "unisex", eventCategory: "casual", leadTimeMinutes: 30, color: "Blue" },
-    { id: "17", name: "Leather Jacket", price: 699, rating: 4.7, image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1200&auto=format&fit=crop", category: "Party", gender: "unisex", eventCategory: "street", leadTimeMinutes: 45, color: "Black" },
+    // Unisex Thrift Items
+    { id: "47", name: "Orange Graphic Hoodie", price: 699, rating: 4.8, image: "/src/images/Thrift - Jackets/Thrift - Jackets/IMG_7905 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 35, color: "Orange", sizes: ["M", "L", "XL"] },
+    { id: "48", name: "White Graphic Shirt", price: 599, rating: 4.6, image: "/src/images/Thrift - Jackets/Thrift - Jackets/IMG_7920 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 30, color: "White", sizes: ["L", "XL"] },
+    { id: "49", name: "Brown Knit Vest", price: 499, rating: 4.5, image: "/src/images/Thrift - Jackets/Thrift - Jackets/L.   IMG_7911 2.jpg", category: "Casual", gender: "unisex", eventCategory: "street", leadTimeMinutes: 30, color: "Brown", sizes: ["L"] },
+    { id: "8", name: "Grey Trousers Set", price: 299, rating: 4.4, image: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=1000&auto=format&fit=crop", category: "Casual", gender: "unisex", eventCategory: "casual", leadTimeMinutes: 30, color: "Grey" },
+    { id: "17", name: "Black Graphic Tee", price: 699, rating: 4.7, image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=1200&auto=format&fit=crop", category: "Party", gender: "unisex", eventCategory: "street", leadTimeMinutes: 45, color: "Black" },
     { id: "36", name: "Khaki Trench Coat", price: 599, rating: 4.6, image: "https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?q=80&w=1000&auto=format&fit=crop", category: "Casual", gender: "unisex", eventCategory: "casual", leadTimeMinutes: 35, color: "Grey" },
 ];
 

@@ -15,6 +15,15 @@ const ChromaticClosetPage = lazy(() => import("./pages/ChromaticClosetPage"));
 const MoodPage = lazy(() => import("./pages/MoodPage"));
 const CollectionsPage = lazy(() => import("./pages/CollectionsPage"));
 const GenderCategoryPage = lazy(() => import("./pages/GenderCategoryPage"));
+// Direct imports for QR hygiene pages to avoid lazy loading issues
+import QRHygienePage from "./pages/QRHygienePage";
+import QRScannerPage from "./pages/QRScannerPage";
+import ProductIntakePage from "./pages/ProductIntakePage";
+import AdminHygieneDashboard from "./pages/AdminHygieneDashboard";
+import QRHygieneTestPage from "./pages/QRHygieneTestPage";
+import ProductQRGalleryPage from "./pages/ProductQRGalleryPage";
+import MobileProductDetailPage from "./pages/MobileProductDetailPage";
+import OfflinePage from "./pages/OfflinePage";
 import NotFound from "./pages/NotFound";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
@@ -23,6 +32,7 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StyleAssistant } from "./components/StyleAssistant";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { InstallPrompt } from "./components/InstallPrompt";
+import { SyncNotifications } from "./components/SyncNotifications";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 
 const queryClient = new QueryClient();
@@ -55,6 +65,7 @@ function App() {
               <StyleAssistant />
               <OfflineIndicator />
               <InstallPrompt />
+              <SyncNotifications />
 
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
@@ -63,6 +74,41 @@ function App() {
                       <Index />
                     </PageTransition>
                   } />
+                  {/* QR Hygiene Routes - Place before dynamic routes to ensure they match correctly */}
+                  <Route path="/qr-hygiene" element={
+                    <PageTransition>
+                      <QRHygienePage />
+                    </PageTransition>
+                  } />
+                  <Route path="/qr-scanner" element={
+                    <PageTransition>
+                      <QRScannerPage />
+                    </PageTransition>
+                  } />
+                  <Route path="/product-intake" element={
+                    <PageTransition>
+                      <ProductIntakePage />
+                    </PageTransition>
+                  } />
+                  <Route path="/admin/hygiene" element={
+                    <PageTransition>
+                      <AdminHygieneDashboard />
+                    </PageTransition>
+                  } />
+                  <Route path="/products/qr-gallery" element={
+                    <PageTransition>
+                      <ProductQRGalleryPage />
+                    </PageTransition>
+                  } />
+                  <Route path="/test-qr" element={
+                    <QRHygieneTestPage />
+                  } />
+                  <Route path="/product/:productId" element={
+                    <PageTransition>
+                      <MobileProductDetailPage />
+                    </PageTransition>
+                  } />
+                  {/* Other static routes */}
                   <Route path="/chromatic" element={
                     <PageTransition>
                       <ChromaticClosetPage />
@@ -83,17 +129,18 @@ function App() {
                       <HowItWorksPage />
                     </PageTransition>
                   } />
-                  <Route path="/mood/:moodId" element={
-                    <PageTransition>
-                      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-                        <MoodPage />
-                      </Suspense>
-                    </PageTransition>
-                  } />
+                  {/* Dynamic routes - should come after specific routes */}
                   <Route path="/collections" element={
                     <PageTransition>
                       <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
                         <CollectionsPage />
+                      </Suspense>
+                    </PageTransition>
+                  } />
+                  <Route path="/mood/:moodId" element={
+                    <PageTransition>
+                      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+                        <MoodPage />
                       </Suspense>
                     </PageTransition>
                   } />
@@ -118,6 +165,13 @@ function App() {
                       </Suspense>
                     </PageTransition>
                   } />
+                  {/* Offline page for PWA */}
+                  <Route path="/offline" element={
+                    <PageTransition>
+                      <OfflinePage />
+                    </PageTransition>
+                  } />
+                  {/* 404 - must be last */}
                   <Route path="*" element={
                     <PageTransition>
                       <NotFound />

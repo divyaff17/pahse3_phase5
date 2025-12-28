@@ -22,8 +22,8 @@ export default defineConfig({
         name: "Pop Clozet - Rent the Trend",
         short_name: "Pop Clozet",
         description: "Rent designer fashion for every occasion. Delivered in 60 minutes.",
-        theme_color: "#6366f1",
-        background_color: "#ffffff",
+        theme_color: "#F6F0E0",
+        background_color: "#F6F0E0",
         display: "standalone",
         orientation: "portrait-primary",
         start_url: "/",
@@ -90,31 +90,31 @@ export default defineConfig({
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB limit for JS bundles
         runtimeCaching: [
-          // Cache images at runtime instead of precaching
+          // Cache images at runtime with CacheFirst (30 day expiry)
           {
             urlPattern: /\.(?:png|jpg|jpeg|webp|gif)$/i,
             handler: "CacheFirst",
             options: {
               cacheName: "images-cache",
               expiration: {
-                maxEntries: 60,
+                maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
               }
             }
           },
-          // Cache CSS
+          // Cache CSS with StaleWhileRevalidate
           {
             urlPattern: /\.css$/i,
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "css-cache",
               expiration: {
-                maxEntries: 10,
+                maxEntries: 20,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
               }
             }
           },
-          // Cache Google Fonts
+          // Cache Google Fonts stylesheets
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "StaleWhileRevalidate",
@@ -122,6 +122,7 @@ export default defineConfig({
               cacheName: "google-fonts-stylesheets"
             }
           },
+          // Cache Google Fonts webfonts (immutable)
           {
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: "CacheFirst",
@@ -132,8 +133,51 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
               }
             }
+          },
+          // Supabase API calls - NetworkFirst with 3s timeout (live data preferred)
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api-cache",
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          // Supabase Storage (product images) - CacheFirst
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "supabase-storage-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              }
+            }
+          },
+          // Unsplash images - CacheFirst
+          {
+            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "unsplash-images-cache",
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              }
+            }
           }
-        ]
+        ],
+        // Offline fallback
+        navigateFallback: "/offline.html",
+        navigateFallbackDenylist: [/^\/api/, /^\/admin/]
       },
       devOptions: {
         enabled: true,
